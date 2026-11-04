@@ -64,7 +64,7 @@ class Handler final {
 
 fc::Patch definition() {
     return fc::Patch{.id = "SaberSoundFix",
-                     .description = "Lets saber ignition and shutdown sounds finish and overlap, even after the blades turn off.",
+                     .description = "Prevents lightsaber ignition and shutdown sounds from being cut off.",
                      .category = "Multiplayer",
                      .enabled = true,
                      .variants = {fc::variant<Handler>({"BF2.Steam.59EDE353", "BF2.GOG.59EDF52B"}, fc::Role::Client)}};

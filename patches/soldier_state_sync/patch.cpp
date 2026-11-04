@@ -619,7 +619,7 @@ class Handler final {
 
 fc::Patch definition(fc::Role role) {
     fc::Patch patch{.id = "SoldierStateSync",
-                    .description = "Preserves soldier state in multiplayer updates and corrects movement rotation and trigger timers.",
+                    .description = "Keeps player movement and weapon actions in sync in multiplayer.",
                     .category = "Multiplayer",
                     .enabled = true};
     if (role == fc::Role::Client) {

@@ -67,7 +67,7 @@ class Handler {
 fc::Patch definition() {
     return fc::Patch{
         .id = "SpawnDelay",
-        .description = "Sets the default spawn delay value for singleplayer and hosted games.",
+        .description = "Sets the default delay between team spawn waves.",
         .category = "Server",
         .enabled = true,
         .settings = fc::settings<Handler::Settings>({fc::setting("Seconds", &Handler::Settings::seconds,

@@ -25,7 +25,6 @@ else()
 
     add_library(FusionCutterMPGC MODULE mpgc.cpp)
     target_link_libraries(FusionCutterMPGC PRIVATE fusioncutter_mpgc_patches)
-    set_target_properties(FusionCutterMPGC PROPERTIES OUTPUT_NAME "FC.MPGC" PDB_NAME "FC.MPGC")
 
     set(plugin_targets FusionCutterMultiplayer FusionCutterServer FusionCutterDiagnostics FusionCutterSocial
                        FusionCutterMPGC)
@@ -33,10 +32,13 @@ endif()
 target_link_libraries(FusionCutterServer PRIVATE fusioncutter_server_patches)
 
 foreach(plugin_target IN LISTS plugin_targets)
+    string(REPLACE "FusionCutter" "FC." plugin_filename "${plugin_target}")
     target_compile_options(${plugin_target} PRIVATE /W4)
 
     # Use the C runtime options supplied by the FC SDK.
     set_target_properties(${plugin_target} PROPERTIES
+        OUTPUT_NAME "${plugin_filename}"
+        PDB_NAME "${plugin_filename}"
         MSVC_RUNTIME_LIBRARY ""
         CXX_EXTENSIONS OFF
         CXX_SCAN_FOR_MODULES OFF

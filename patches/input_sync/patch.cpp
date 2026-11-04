@@ -7,7 +7,7 @@ namespace fc_plugins::input_sync {
 fc::Patch definition(fc::Role role) {
     fc::Patch patch{
         .id = "InputSync",
-        .description = "Sends complete controls, retains prediction input and prevents stale server input reuse.",
+        .description = "Keeps movement and button presses in sync between clients and servers.",
         .category = "Networking",
         .enabled = true,
     };

@@ -15,7 +15,7 @@ template <fc::Role Role> struct RoleHandler : Handler {
 fc::Patch definition(fc::Role role) {
     fc::Patch patch{
         .id = "ShotSequence",
-        .description = "Corrects weapon cooldown completion and preserves projectile patterns during prediction replay.",
+        .description = "Fixes weapon cooldowns and inconsistent projectile spread in multiplayer.",
         .category = "Multiplayer",
         .enabled = true,
     };

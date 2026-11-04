@@ -543,7 +543,7 @@ class Handler final : public QueueHandler {
 
 fc::Patch definition(fc::Role role) {
     fc::Patch patch{.id = "MeleeTiming",
-                    .description = "Fixes melee input acceptance, consumption and rounding at combo timing boundaries.",
+                    .description = "Fixes missed melee combo inputs in multiplayer.",
                     .category = "Multiplayer",
                     .enabled = true,
                     .configurable = true};
