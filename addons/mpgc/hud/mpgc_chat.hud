@@ -1,0 +1,30 @@
+// Use the original message history below the GC title, credits and chat input.
+MultilineText("player1systemMessages")
+{
+    EventText("player1.message")
+    EventColor("player1.message.color")
+    NumLines(8)
+    DisplayTime(15.0)
+    AlwaysScroll(1)
+    ScrollSpeed(4.0)
+    AddToTop(1)
+    Rect(0.500000, 0.20000, "Left", "Top", "Viewport")
+    PropagateAlpha(1)
+    Position(0.06, 0.205, 0.000000, "Viewport")
+    ZOrder(0)
+    EventEnable("player1.message")
+    EventDisable("player1.message.disable")
+    Format("Format")
+    {
+        TextBox(0.500000, 0.250000)
+        TextBreak("Word")
+        TextStyle("Shadow")
+        TextAlignment("Left", "Center")
+        TextFont("gamefont_small")
+        ZOrder(0)
+        Color(223, 32, 32)
+        FadeInTime(0.250000)
+        FadeOutTime(0.250000)
+    }
+
+}

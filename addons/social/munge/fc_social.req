@@ -1,0 +1,11 @@
+ucft
+{
+    REQN
+    {
+        "script"
+        "fc_social"
+        "fc_voice_options"
+        "fc_voice_lobby"
+        "fc_buddies"
+    }
+}

@@ -1,0 +1,19 @@
+ucft
+{
+	REQN
+	{
+		"script"
+		"ifs_freeform_net_shell"
+		"ifs_freeform_net_menus"
+		"ifs_freeform_net_browser"
+		"ifs_freeform_net_campaign"
+		"ifs_freeform_net_controls"
+		"ifs_freeform_net_presentation"
+		"ifs_freeform_net_battle"
+		"ifs_freeform_net_inventory"
+		"ifs_freeform_net_actions"
+		"ifs_freeform_net_decisions"
+		"ifs_freeform_net_screens"
+		"ifs_freeform_net_chat"
+	}
+}
