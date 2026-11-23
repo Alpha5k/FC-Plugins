@@ -271,12 +271,10 @@ function ifs_freeform_net_fnBuildBrowser(this)
 				IFObj_fnSetVis(control, nil)
 			end
 
-			local selection = mpsessionlist_listbox_contents[mpsessionlist_listbox_layout.SelectedIdx or 0]
-			local info = selection and ScriptCB_GetMetagameSessionInfo(selection.sessionIdx)
-			local disabled = not info or not info.joinable
-			this.donebutton.bDimmed = disabled or nil
-			IFObj_fnSetAlpha(this.donebutton, disabled and 0.3 or 1)
-			IFObj_fnSetAlpha(this.donebutton.label, disabled and 0.3 or 1)
+			-- Keep Join available so an unsuccessful attempt can explain why it failed.
+			this.donebutton.bDimmed = nil
+			IFObj_fnSetAlpha(this.donebutton, 1)
+			IFObj_fnSetAlpha(this.donebutton.label, 1)
 		end
 	end
 
@@ -286,7 +284,19 @@ function ifs_freeform_net_fnBuildBrowser(this)
 		if screen.mpgc_selected then
 			local selection = mpsessionlist_listbox_contents[mpsessionlist_listbox_layout.SelectedIdx or 0]
 			local info = selection and ScriptCB_GetMetagameSessionInfo(selection.sessionIdx)
-			if not info or not info.joinable then
+			local message
+			if not selection then
+				message = "Select a campaign to join."
+			elseif not info then
+				message = "Campaign details are unavailable. Refresh the list and try again."
+			elseif not info.joinable then
+				message = "This campaign is not ready to join. Try again when the host returns to the galaxy map."
+			end
+
+			if message then
+				Popup_Ok.fnDone = nil
+				Popup_Ok:fnActivate(1)
+				gPopup_fnSetTitleUStr(Popup_Ok, ScriptCB_tounicode(message))
 				return
 			end
 		end
