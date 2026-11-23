@@ -15,7 +15,33 @@ void Discovery::plan(fc::Plan &input) {
         game.fail(std::format("No native layout for image profile '{}'", game.profile()));
         return;
     }
-    // The count local belongs to this exact incoming Galaxy ID; earlier cancellation/member checks stay intact.
+    // The GC tab searches for its own metadata. Ordinary browsing retains the stock cancellation filter.
+    game.hook_instruction(
+        layout->search_filter,
+        [this](fc::CpuContext &cpu) noexcept {
+            if (selected_.load(std::memory_order_acquire)) {
+                const auto stack = fc::stack_pointer(cpu);
+                fc::write_field<const char *>(stack, 0, "FC.MultiplayerGC");
+                fc::write_field<const char *>(stack, 4, "");
+            }
+        },
+        fc::exact_bytes({0x8B, 0x10, 0x8B, 0xC8, 0xFF, 0x52, 0x0C}));
+
+    // GC uses the cancellation flag to hide from stock searches. Keep parsing all its ordinary fields.
+    game.hook_instruction(
+        layout->reader_cancelled,
+        [this](fc::CpuContext &cpu) noexcept {
+            if (!selected_.load(std::memory_order_acquire)) {
+                return;
+            }
+            const auto *id = fc::read_field<const std::uint64_t *>(fc::frame_pointer(cpu), 8);
+            if (id && read(fc::read_field<std::uint64_t>(id))) {
+                cpu.eax &= ~0xFFu;
+            }
+        },
+        fc::exact_bytes({0x8A, 0xD8, 0x83, 0xC4, 0x08}));
+
+    // Use the accepted campaign count after the native membership and password checks.
     game.hook_instruction(
         layout->reader_count,
         [this](fc::CpuContext &cpu) noexcept {
@@ -29,14 +55,23 @@ void Discovery::plan(fc::Plan &input) {
         },
         fc::exact_bytes({0x83, 0x7C, 0x24, 0x78, 0x00}));
 
-    // Advance before native removal can free the current node.
-    // Retail otherwise repeats a nonmatching node forever.
-    game.hook_instruction(
-        layout->reader_remove_advance,
-        [](fc::CpuContext &cpu) noexcept {
-            advance_result_iterator(reinterpret_cast<void *>(fc::frame_pointer(cpu)));
-        },
-        fc::exact_bytes({0x85, 0xC0, 0x74, 0x28, 0x8B, 0x4D, 0xFC}));
+    // The standalone EXE hotfix already advances this iterator. Apply the runtime repair only to stock code.
+    constexpr std::array<std::uint8_t, 42> kFixedRemoval{
+        0x8B, 0x45, 0xF4, 0x8B, 0x48, 0x0C, 0x85, 0xC9, 0x74, 0x4E, 0x89, 0x4D, 0xFC, 0x8B, 0x50, 0x04, 0x89, 0x55, 0xF4, 0x8D, 0x95,
+        0x68, 0xFE, 0xFF, 0xFF, 0x52, 0xE8, 0x07, 0xE9, 0xFF, 0xFF, 0x0F, 0xB6, 0xC0, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90};
+    const auto removal = game.read_array<std::uint8_t>(layout->reader_remove_advance - 0x2A, kFixedRemoval.size());
+    if (!removal) {
+        game.fail("Could not read the lobby removal loop.");
+        return;
+    }
+    if (!std::ranges::equal(*removal, kFixedRemoval)) {
+        game.hook_instruction(
+            layout->reader_remove_advance,
+            [](fc::CpuContext &cpu) noexcept {
+                advance_result_iterator(reinterpret_cast<void *>(fc::frame_pointer(cpu)));
+            },
+            fc::exact_bytes({0x85, 0xC0, 0x74, 0x28, 0x8B, 0x4D, 0xFC}));
+    }
 
     struct BrowserProfile {
         std::string_view profile;

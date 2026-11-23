@@ -37,9 +37,9 @@ struct ShellLayout {
     std::uint32_t read_bytes, resolve_packet, destination, coverage;
     std::uint32_t host_queue, remove_node, free_record;
     std::uint32_t client_due, client_queue_count, host_send_updates;
-    std::uint32_t publication_count;
+    std::uint32_t publication_hidden;
     fc::Evidence publication_evidence;
-    std::uint32_t reader_count;
+    std::uint32_t search_filter, reader_cancelled, reader_count;
     std::uint32_t reader_remove_advance;
     std::uint32_t input_manager_reference, input_manager, input_getter, input_flags_read;
     std::uint32_t browser_map_gate, browser_resort, browser_sort, browser_direction;

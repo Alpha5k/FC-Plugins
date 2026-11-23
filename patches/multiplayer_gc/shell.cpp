@@ -117,12 +117,13 @@ void Shell::plan(fc::Plan &plan) {
         },
         fc::exact_bytes({0x55, 0x8B, 0xEC, 0x81, 0xEC, 0xA0, 0x00, 0x00, 0x00}));
 
-    // Each formatter sees the calculated count already at [ESP]; preserve the native roster and EDI.
+    // Hide GC lobbies through Galaxy's search filter before stock browsers receive them.
+    // The game republishes this field throughout the campaign, including battles.
     plan.hook_instruction(
-        layout->publication_count,
+        layout->publication_hidden,
         [this](fc::CpuContext &cpu) noexcept {
             if (host_intent_.load(std::memory_order_acquire)) {
-                fc::write_field<std::uint32_t>(fc::stack_pointer(cpu), 0, 0);
+                fc::write_field<std::uint32_t>(fc::stack_pointer(cpu), 0, 1);
             }
         },
         layout->publication_evidence);
