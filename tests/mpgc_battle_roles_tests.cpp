@@ -1,4 +1,5 @@
 #include "../patches/multiplayer_gc/battle_roles.hpp"
+#include "../patches/multiplayer_gc/participants.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -61,6 +62,41 @@ TEST_CASE("GC temporary roles use the resolved mission teams and preserve stock 
     CHECK(gc::battle_team({.slot = 5, .faction = 2}, teams, roles) == 0);
     CHECK(gc::battle_team(host, teams, std::nullopt) == 2);
     CHECK(gc::battle_team({.slot = 5, .faction = 2}, teams, std::nullopt) == 1);
+}
+
+TEST_CASE("GC temporary roles cover a full co-op or versus roster", "[mpgc]") {
+    for (const bool cooperative : {true, false}) {
+        CAPTURE(cooperative);
+        const std::uint64_t capacity = cooperative ? 8 : 16;
+        gc::Participants participants;
+        participants.start({1}, "Host", 1, cooperative);
+        for (std::uint64_t id = 2; id <= capacity; ++id) {
+            REQUIRE(participants.ready({id}, "Player"));
+            if (!cooperative) {
+                REQUIRE(participants.choose({id}, id <= 8 ? 1 : 2));
+            }
+        }
+        REQUIRE(participants.accepted_count() == capacity);
+
+        gc::Message roster{.kind = gc::MessageKind::Roster};
+        std::optional<gc::BattleRoles> roles{std::in_place};
+        for (const auto &member : participants.list()) {
+            const auto id = member.peer.value;
+            const auto slot = static_cast<std::uint8_t>(id == capacity ? 63 : (id - 1) * 4);
+            roster.roster.players.push_back({.slot = slot, .faction = member.faction, .host = id == 1, .name = member.name});
+            REQUIRE(roles->set(slot, id % 2 == 0 ? 1 : 2));
+        }
+        const auto decoded = gc::decode_message(gc::encode_message(roster));
+        REQUIRE(decoded);
+        const auto &players = decoded->roster.players;
+        REQUIRE(players == roster.roster.players);
+        REQUIRE(roles->matches(players));
+        const std::array<std::uint32_t, 2> teams{2, 1};
+        for (std::size_t i = 0; i < players.size(); ++i) {
+            CHECK(gc::battle_team(players[i], teams, roles) == (i % 2 == 0 ? 1 : 2));
+        }
+        CHECK_FALSE(roles->matches(std::span{players}.first(players.size() - 1)));
+    }
 }
 
 } // namespace

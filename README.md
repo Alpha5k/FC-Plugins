@@ -162,7 +162,8 @@ Custom campaign Lua can pass an optional fourth argument to
 Use native player slots from `ScriptCB_UpdateMPMetagame().participants` as the table keys, including slot 0.
 Give every admitted player role `1` for `firstSide` or `2` for `secondSide`. The host's Lua sends the same
 table to each peer, and each peer supplies it when acknowledging the same setup. The roles apply to that
-mission's actual teams. Three-argument calls use MPGC's campaign faction assignments.
+mission's actual teams. The table accepts any admitted roster up to MPGC's existing limits of eight players
+in co-op and sixteen in versus. Three-argument calls use MPGC's campaign faction assignments.
 
 ## Installation
 
