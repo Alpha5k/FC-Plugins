@@ -304,9 +304,15 @@ void Handler::poll(fc::lua::Frame &frame) {
     const auto peek = frame.argument_count() && frame.argument(0).as_bool().value_or(false);
     if (!peek) {
         shell_.capture_names();
-        transition_.update();
+        transition_.update(session_.current_battle_setup());
     }
     auto state = session_.poll(peek);
+    if (state.launch) {
+        if (const auto launch = transition_.check_launch(session_.current_battle_setup()); !launch) {
+            state.launch = false;
+            state.message = launch.error().message;
+        }
+    }
     state.returned = state.returned || transition_.shell();
     if (auto result = transition_.check(); !result) {
         state.phase = "error";

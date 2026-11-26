@@ -235,11 +235,16 @@ void Transition::configure(TransitionSession session) {
     session_.store(std::make_shared<const TransitionSession>(std::move(session)), std::memory_order_release);
 }
 
-void Transition::update() noexcept {
+void Transition::update(std::uint32_t current_setup) noexcept {
     const auto session = session_.load(std::memory_order_acquire);
     if (!shell_state_.read().value_or(0) || !session || !session->active) {
         shell_session_.reset();
         return;
+    }
+    if (stage_.load(std::memory_order_acquire) == Stage::Prepared && battle_roles_ &&
+        (battle_setup_id_ != current_setup || !battle_roles_->matches(session->players))) {
+        auto expected = Stage::Prepared;
+        stage_.compare_exchange_strong(expected, Stage::Idle, std::memory_order_acq_rel);
     }
     if (session == shell_session_) {
         return;
@@ -254,28 +259,52 @@ void Transition::update() noexcept {
     shell_session_ = session;
 }
 
-fc::Result<> Transition::prepare(std::string_view faction_one, std::string_view faction_two) {
+fc::Result<> Transition::prepare(std::uint32_t setup_id, std::string_view faction_one, std::string_view faction_two,
+                                 const std::optional<BattleRoles> &roles) {
     const auto session = session_.load(std::memory_order_acquire);
     if (!session || !session->active) {
         return std::unexpected(fc::Error{"Join the campaign before preparing a battle."});
+    }
+    if (roles && !roles->matches(session->players)) {
+        return std::unexpected(fc::Error{"Supply a battle role for every admitted player slot."});
     }
     const auto driver = (session->host ? host_ : join_).read().value_or(nullptr);
     if (!established(driver, session->host)) {
         return std::unexpected(fc::Error{"The native lobby has not completed its connection and file transfer setup."});
     }
     const std::array names{std::string{faction_one}, std::string{faction_two}};
+    std::array<std::uint32_t, 2> sides{};
     for (std::size_t index = 0; index < names.size(); ++index) {
-        faction_sides_[index] = translate_.call(names[index].c_str()).value_or(0);
+        sides[index] = translate_.call(names[index].c_str()).value_or(0);
     }
-    if (faction_sides_[0] < 1 || faction_sides_[0] > 4 || faction_sides_[1] < 1 || faction_sides_[1] > 4 ||
-        faction_sides_[0] == faction_sides_[1]) {
+    if (sides[0] < 1 || sides[0] > 4 || sides[1] < 1 || sides[1] > 4 || sides[0] == sides[1]) {
         return std::unexpected(fc::Error{"The battle must name two different campaign factions."});
     }
     failure_.store(Failure::None, std::memory_order_release);
+    faction_sides_ = sides;
     faction_teams_ = {};
+    battle_setup_id_ = setup_id;
+    battle_roles_ = roles;
     // Publish the prepared side data in one atomic step; a later disarm cannot be overwritten by another arming store.
     stage_.store(Stage::Prepared, std::memory_order_release);
     remove_unassigned();
+    return {};
+}
+
+fc::Result<> Transition::check_launch(std::uint32_t current_setup) const {
+    if (!battle_roles_) {
+        return {};
+    }
+    const auto session = session_.load(std::memory_order_acquire);
+    if (stage_.load(std::memory_order_acquire) != Stage::Prepared || !session || !session->active || !session->host ||
+        battle_setup_id_ != current_setup || !battle_roles_->matches(session->players)) {
+        return std::unexpected(fc::Error{"The battle roster changed. Prepare the battle again."});
+    }
+    for (const auto &player : session->players) {
+        if (battle_roles_->role(player.slot) && !connected_.call(player.slot).value_or(false)) {
+            return std::unexpected(fc::Error{"A player assigned to this battle disconnected. Prepare the battle again."});
+        }
+    }
     return {};
 }
 
@@ -456,8 +485,8 @@ std::uint32_t Transition::assigned_team(std::int32_t slot) const noexcept {
     const auto session = session_.load(std::memory_order_acquire);
     if (session && session->active) {
         for (const auto &player : session->players) {
-            if (player.slot == slot && player.faction >= 1 && player.faction <= 2) {
-                return faction_teams_[player.faction - 1];
+            if (player.slot == slot) {
+                return battle_team(player, faction_teams_, battle_roles_);
             }
         }
     }

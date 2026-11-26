@@ -15,6 +15,25 @@ std::optional<std::uint32_t> integer(fc::lua::Frame &frame, std::size_t index) {
     return static_cast<std::uint32_t>(*value);
 }
 
+fc::Result<BattleRoles> battle_roles(fc::lua::Value table) {
+    if (table.type() != fc::lua::Type::Table || table.has_metatable()) {
+        return std::unexpected(fc::Error{"Supply a plain table of battle roles keyed by native player slot."});
+    }
+    BattleRoles roles;
+    const auto result = table.for_each([&](fc::lua::Value key, fc::lua::Value value) {
+        const auto slot = key.as_number();
+        const auto role = value.as_number();
+        return slot && role && roles.set(*slot, *role);
+    });
+    if (!result) {
+        return std::unexpected(result.error());
+    }
+    if (!*result) {
+        return std::unexpected(fc::Error{"Battle roles must use integer slots 0 to 63 and role 1 or 2."});
+    }
+    return roles;
+}
+
 } // namespace
 
 void Handler::update(const fc::UpdateContext &) noexcept {
@@ -154,18 +173,28 @@ fc::Result<> Handler::bind_campaign(fc::lua::Bindings &bindings) {
         return result;
     }
     return bindings.bind("ScriptCB_SetMetagameBattleReady", [this](fc::lua::Frame &frame) {
+        const auto arguments = frame.argument_count();
         const auto id = integer(frame, 0);
         const auto first_side = frame.argument(1).as_string();
         const auto second_side = frame.argument(2).as_string();
-        if (frame.argument_count() != 3 || !first_side || first_side->empty() || !second_side || second_side->empty()) {
+        if ((arguments != 3 && arguments != 4) || !first_side || first_side->empty() || !second_side || second_side->empty()) {
             return_result(frame, std::unexpected(fc::Error{"Supply the applied battle setup and loaded faction side codes."}));
             return;
         }
-        if (!id || !pending_setup_ || pending_setup_->id != *id) {
+        if (!id || !pending_setup_ || pending_setup_->id != *id || (arguments == 4 && session_.current_battle_setup() != *id)) {
             return_result(frame, std::unexpected(fc::Error{"This battle setup is no longer current."}));
             return;
         }
-        if (auto result = transition_.prepare(*first_side, *second_side); !result) {
+        std::optional<BattleRoles> roles;
+        if (arguments == 4) {
+            const auto parsed = battle_roles(frame.argument(3));
+            if (!parsed) {
+                return_result(frame, std::unexpected(parsed.error()));
+                return;
+            }
+            roles = *parsed;
+        }
+        if (auto result = transition_.prepare(*id, *first_side, *second_side, roles); !result) {
             return_result(frame, result);
             return;
         }
