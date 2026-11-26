@@ -71,6 +71,7 @@ void Session::observe_transition(bool mission, bool shell) {
     if (mission && phase_ != Phase::Battle) {
         phase_ = Phase::Battle;
         awaiting_launch_ = false;
+        current_setup_.store(0, std::memory_order_release);
         addon_ready_ = ready_sent_ = false;
         publish_view(false);
     } else if (shell && phase_ == Phase::Battle) {
@@ -211,6 +212,9 @@ void Session::process_commands(Commands &commands) {
             summary_.turn = decision_.turn;
             if (phase_ != Phase::Battle) {
                 phase_ = encounter_screen(decision_.screen) ? Phase::Preparing : Phase::Strategic;
+                if (phase_ == Phase::Strategic) {
+                    current_setup_.store(0, std::memory_order_release);
+                }
             }
         }
         if (commands.action_result && action_ && commands.action_result->token == action_->token) {
@@ -238,6 +242,7 @@ void Session::process_commands(Commands &commands) {
             phase_ = Phase::Preparing;
             battle_ready_.clear();
             awaiting_launch_ = true;
+            current_setup_.store(battle_.id, std::memory_order_release);
             for (const auto &player : participants_.list()) {
                 if (player.peer != local_ && player.faction) {
                     queue(player.peer, {.kind = MessageKind::BattleSetup, .battle = battle_});

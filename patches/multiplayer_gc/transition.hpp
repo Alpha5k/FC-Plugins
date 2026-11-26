@@ -1,6 +1,6 @@
 #pragma once
 
-#include "protocol.hpp"
+#include "battle_roles.hpp"
 
 #include <fc/native.hpp>
 
@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -48,9 +49,12 @@ class Transition {
     // Publishes control-thread state; native calls remain on their original owner thread.
     void configure(TransitionSession session);
     // Seeds changed accepted shell assignments once per campaign update on the Lua owner thread.
-    void update() noexcept;
+    void update(std::uint32_t current_setup) noexcept;
     // Arms one battle after its exact native mission setup has been applied on the Lua owner thread.
-    fc::Result<> prepare(std::string_view faction_one, std::string_view faction_two);
+    fc::Result<> prepare(std::uint32_t setup_id, std::string_view faction_one, std::string_view faction_two,
+                         const std::optional<BattleRoles> &roles);
+    // Rechecks explicit assignments before the host publishes permission to launch.
+    fc::Result<> check_launch(std::uint32_t current_setup) const;
     // Restores normal quit/loss behavior before an explicit campaign leave.
     void disarm() noexcept;
     // Reports actual successful driver continuation before the new shell's first Lua Enter.
@@ -102,6 +106,8 @@ class Transition {
     std::shared_ptr<const TransitionSession> shell_session_;
     std::array<std::byte, 0x1590> driver_{};
     std::array<std::uint32_t, 2> faction_sides_{}, faction_teams_{};
+    std::uint32_t battle_setup_id_{};
+    std::optional<BattleRoles> battle_roles_;
     fc::Memory<void *> host_, join_, teams_;
     fc::Memory<void *> postload_host_, postload_join_;
     fc::Memory<std::uint32_t> setup_mode_;

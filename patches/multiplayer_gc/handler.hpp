@@ -37,6 +37,9 @@ class Handler final {
     // Checks access to all four ranges before a callback reads or modifies native storage.
     fc::Result<Storage> storage() const;
 
+    // Resolves the active campaign buffer from the game's save and load operands.
+    fc::Result<std::span<char>> campaign_storage() const;
+
     // Copies the saved campaign and mission bytes with their recorded lengths.
     fc::Result<State> capture() const;
 
@@ -62,6 +65,8 @@ class Handler final {
     static void return_result(fc::lua::Frame &frame, const fc::Result<> &result);
 
     fc::Memory<char> campaign_;
+    fc::Memory<const char> campaign_save_buffer_;
+    fc::Memory<const char> campaign_load_buffer_;
     fc::Memory<std::uint32_t> campaign_length_;
     fc::Memory<char> mission_;
     fc::Memory<std::uint32_t> mission_length_;

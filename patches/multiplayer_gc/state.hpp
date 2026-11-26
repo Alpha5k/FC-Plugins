@@ -20,6 +20,9 @@ struct State {
     bool operator==(const State &) const = default;
 };
 
+// Resolves matching live save/load addresses to the stock buffer or to writable GameExt storage.
+fc::Result<std::span<char>> select_campaign_buffer(std::uintptr_t saved, std::uintptr_t loaded, std::span<char> stock);
+
 // Copies each buffer's recorded bytes; an empty campaign or a length exceeding storage returns an error.
 fc::Result<State> capture_state(std::span<const char> campaign, std::uint32_t campaign_length, std::span<const char> mission,
                                 std::uint32_t mission_length);

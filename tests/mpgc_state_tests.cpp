@@ -9,6 +9,21 @@
 namespace {
 namespace gc = fc_plugins::multiplayer_gc;
 
+TEST_CASE("GC buffer selection checks both live references", "[mpgc]") {
+    std::array<char, gc::kCampaignCapacity> stock{};
+    std::array<char, gc::kCampaignCapacity> unrelated{};
+    const auto stock_address = reinterpret_cast<std::uintptr_t>(stock.data());
+    const auto unrelated_address = reinterpret_cast<std::uintptr_t>(unrelated.data());
+
+    const auto result = gc::select_campaign_buffer(stock_address, stock_address, stock);
+    REQUIRE(result);
+    CHECK(result->data() == stock.data());
+    CHECK(result->size() == stock.size());
+    CHECK_FALSE(gc::select_campaign_buffer(stock_address, unrelated_address, stock));
+    CHECK_FALSE(gc::select_campaign_buffer(unrelated_address, unrelated_address, stock));
+    CHECK_FALSE(gc::select_campaign_buffer(0, 0, stock));
+}
+
 TEST_CASE("GC capture copies used binary bytes and accepts absent mission setup", "[mpgc]") {
     std::array<char, 512> campaign{};
     std::array<char, 256> mission{};
@@ -45,6 +60,19 @@ TEST_CASE("GC install validates both payloads before changing native storage", "
     CHECK(std::string(mission.data(), mission_length) == source.mission);
     CHECK(campaign[3] == 'a');
     CHECK(mission[3] == 'b');
+}
+
+TEST_CASE("GC state keeps the wire limit with expanded campaign storage", "[mpgc]") {
+    std::array<char, 16384> campaign{};
+    std::array<char, gc::kMissionCapacity> mission{};
+    std::uint32_t campaign_length = 3;
+    std::uint32_t mission_length = 0;
+    constexpr auto oversized_length = static_cast<std::uint32_t>(gc::kCampaignCapacity + 1);
+    const gc::State oversized{std::string(oversized_length, 'c'), {}};
+    CHECK_FALSE(gc::capture_state(campaign, oversized_length, mission, mission_length));
+    CHECK_FALSE(gc::install_state(campaign, campaign_length, mission, mission_length, oversized));
+    CHECK(campaign_length == 3);
+    CHECK(campaign[0] == '\0');
 }
 
 } // namespace

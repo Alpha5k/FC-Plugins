@@ -13,6 +13,7 @@ struct ProfileSites {
     std::uint32_t mission;
     std::uint32_t mission_length;
     std::uint32_t campaign_save;
+    std::uint32_t campaign_load;
     std::uint32_t mission_save;
 };
 
@@ -23,6 +24,7 @@ constexpr std::array kProfiles{
                  .mission = 0x01B9CCD0,
                  .mission_length = 0x01B9C7CC,
                  .campaign_save = 0x0018A1A0,
+                 .campaign_load = 0x0018A1C0,
                  .mission_save = 0x0018A310},
     ProfileSites{.profile = "BF2.GOG.59EDF52B",
                  .campaign = 0x01B9DD80,
@@ -30,6 +32,7 @@ constexpr std::array kProfiles{
                  .mission = 0x01B9E188,
                  .mission_length = 0x01B9E180,
                  .campaign_save = 0x0018B150,
+                 .campaign_load = 0x0018B170,
                  .mission_save = 0x0018B2C0},
 };
 
@@ -45,6 +48,9 @@ Layout make_layout(const ProfileSites &sites) {
         .campaign_save = {.rva = sites.campaign_save,
                           .name = "SaveMetagameState buffer capacity",
                           .evidence = fc::exact_bytes({0x68, 0x00, 0x02, 0x00, 0x00, 0xBA})},
+        .campaign_load = {.rva = sites.campaign_load,
+                          .name = "LoadMetagameState buffer and length",
+                          .evidence = fc::exact_bytes({0xFF, 0x35})},
         .mission_save = {.rva = sites.mission_save,
                          .name = "SaveMissionSetup buffer capacity",
                          .evidence = fc::exact_bytes({0x68, 0x00, 0x01, 0x00, 0x00, 0xBA})},

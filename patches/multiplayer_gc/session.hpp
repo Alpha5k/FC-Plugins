@@ -105,6 +105,11 @@ class Session {
     // Sends the host's captured native setup before any participant starts mission initialization.
     fc::Result<> prepare_battle(BattleSetup setup);
 
+    // Identifies the live setup even after its one-shot payload has been consumed by Lua.
+    std::uint32_t current_battle_setup() const noexcept {
+        return current_setup_.load(std::memory_order_acquire);
+    }
+
     // Acknowledges setup only after the Lua owner applied it and armed the native transition.
     void battle_ready(std::uint32_t id);
 
@@ -212,6 +217,7 @@ class Session {
     Phase phase_{Phase::Strategic};
     Decision decision_;
     BattleSetup battle_;
+    std::atomic<std::uint32_t> current_setup_{};
     std::vector<fc::PeerId> battle_ready_;
     std::optional<Action> action_;
     std::array<std::optional<std::pair<fc::PeerId, Action>>, 2> bonus_actions_;

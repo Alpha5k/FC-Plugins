@@ -10,13 +10,14 @@
 
 namespace fc_plugins::multiplayer_gc {
 
-// Describes the retail compressed buffers, uint32 lengths and their native save instructions.
+// Describes the retail compressed buffers, uint32 lengths and their native save/load instructions.
 struct Layout {
     fc::DataLocation<char, kCampaignCapacity> campaign;
     fc::DataLocation<std::uint32_t> campaign_length;
     fc::DataLocation<char, kMissionCapacity> mission;
     fc::DataLocation<std::uint32_t> mission_length;
     fc::CodeLocation campaign_save;
+    fc::CodeLocation campaign_load;
     fc::CodeLocation mission_save;
 };
 

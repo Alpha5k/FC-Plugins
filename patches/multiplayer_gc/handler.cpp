@@ -1,7 +1,7 @@
 #include "handler.hpp"
 
-#include <cmath>
 #include <array>
+#include <cmath>
 #include <format>
 #include <string>
 #include <string_view>
@@ -9,6 +9,14 @@
 
 namespace fc_plugins::multiplayer_gc {
 namespace {
+
+fc::Result<std::uint32_t> buffer_address(const fc::Memory<const char> &operand) {
+    std::uint32_t address{};
+    if (const auto result = operand.copy_to({reinterpret_cast<char *>(&address), sizeof(address)}); !result) {
+        return std::unexpected(result.error());
+    }
+    return address;
+}
 
 // Copies both Lua byte strings before their frame expires.
 fc::Result<State> state_arguments(fc::lua::Frame &frame) {
@@ -92,15 +100,23 @@ void Handler::plan(fc::Plan &input) {
         return;
     }
 
-    // Absolute operands must refer to the selected buffers and length fields after image relocation.
-    const auto qualify_save = [&plan](const fc::CodeLocation &save, std::uint32_t buffer, std::uint32_t length) {
+    // Both saves still write their compressed length to the original game variable.
+    const auto qualify_save = [&plan](const fc::CodeLocation &save, std::uint32_t length) {
         plan.check(save.rva, 6, save.evidence);
-        plan.check(save.rva + 6, 4, fc::points_to(plan.at(buffer)));
         plan.check(save.rva + 15, 1, fc::exact_bytes({0xA3}));
         plan.check(save.rva + 16, 4, fc::points_to(plan.at(length)));
     };
-    qualify_save(layout->campaign_save, layout->campaign.rva, layout->campaign_length.rva);
-    qualify_save(layout->mission_save, layout->mission.rva, layout->mission_length.rva);
+    qualify_save(layout->campaign_save, layout->campaign_length.rva);
+    qualify_save(layout->mission_save, layout->mission_length.rva);
+    plan.check(layout->mission_save.rva + 6, 4, fc::points_to(plan.at(layout->mission.rva)));
+
+    // GameExt redirects the campaign's MOV EDX operands. Qualify their instructions and read the live addresses.
+    const auto load = layout->campaign_load;
+    plan.check(load.rva, 2, load.evidence);
+    plan.check(load.rva + 2, 4, fc::points_to(plan.at(layout->campaign_length.rva)));
+    plan.check(load.rva + 6, 1, fc::exact_bytes({0xBA}));
+    campaign_save_buffer_ = plan.access<const char>(layout->campaign_save.rva + 6, sizeof(std::uint32_t));
+    campaign_load_buffer_ = plan.access<const char>(load.rva + 7, sizeof(std::uint32_t));
     campaign_ = plan.access(layout->campaign);
     campaign_length_ = plan.access(layout->campaign_length);
     mission_ = plan.access(layout->mission);
@@ -111,6 +127,9 @@ void Handler::plan(fc::Plan &input) {
 }
 
 fc::Result<> Handler::prepare(fc::PrepareContext &context) {
+    if (const auto campaign = campaign_storage(); !campaign) {
+        return std::unexpected(campaign.error());
+    }
     auto bindings = fc::lua::get(context);
     if (!bindings) {
         return std::unexpected(bindings.error());
@@ -155,8 +174,24 @@ fc::Result<> Handler::prepare(fc::PrepareContext &context) {
     return {};
 }
 
+fc::Result<std::span<char>> Handler::campaign_storage() const {
+    const auto saved = buffer_address(campaign_save_buffer_);
+    if (!saved) {
+        return std::unexpected(saved.error());
+    }
+    const auto loaded = buffer_address(campaign_load_buffer_);
+    if (!loaded) {
+        return std::unexpected(loaded.error());
+    }
+    const auto stock = campaign_.view();
+    if (!stock) {
+        return std::unexpected(stock.error());
+    }
+    return select_campaign_buffer(*saved, *loaded, *stock);
+}
+
 fc::Result<Handler::Storage> Handler::storage() const {
-    auto campaign = campaign_.view();
+    const auto campaign = campaign_storage();
     if (!campaign) {
         return std::unexpected(campaign.error());
     }
@@ -269,9 +304,15 @@ void Handler::poll(fc::lua::Frame &frame) {
     const auto peek = frame.argument_count() && frame.argument(0).as_bool().value_or(false);
     if (!peek) {
         shell_.capture_names();
-        transition_.update();
+        transition_.update(session_.current_battle_setup());
     }
     auto state = session_.poll(peek);
+    if (state.launch) {
+        if (const auto launch = transition_.check_launch(session_.current_battle_setup()); !launch) {
+            state.launch = false;
+            state.message = launch.error().message;
+        }
+    }
     state.returned = state.returned || transition_.shell();
     if (auto result = transition_.check(); !result) {
         state.phase = "error";

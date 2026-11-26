@@ -29,6 +29,7 @@ target_compile_features(Catch2 PRIVATE cxx_std_17)
 
 # Exercise production state, protocols and codec behavior; native hooks are checked against game binaries separately.
 add_executable(fc_plugin_tests
+    mpgc_battle_roles_tests.cpp
     mpgc_state_tests.cpp
     mpgc_participants_tests.cpp
     mpgc_protocol_tests.cpp

@@ -178,6 +178,7 @@ void Session::receive(fc::PeerId peer, fc::Bytes bytes) {
     case MessageKind::BattleSetup: {
         battle_ = message->battle;
         phase_ = Phase::Preparing;
+        current_setup_.store(battle_.id, std::memory_order_release);
         std::lock_guard lock(poll_mutex_);
         poll_.setup = battle_;
         break;
@@ -367,6 +368,7 @@ void Session::clear(bool keep_host_intent) {
     phase_ = Phase::Strategic;
     decision_ = {};
     battle_ = {};
+    current_setup_.store(0, std::memory_order_release);
     battle_ready_.clear();
     action_.reset();
     bonus_actions_ = {};

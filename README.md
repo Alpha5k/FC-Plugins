@@ -157,6 +157,14 @@ Multiplayer Galactic Conquest. Requires the [MPGC addon](addons/mpgc).
 | --- | --- | --- |
 | MultiplayerGC | Client | Client |
 
+Custom campaign Lua can pass an optional fourth argument to
+`ScriptCB_SetMetagameBattleReady(setupId, firstSide, secondSide, rolesBySlot)`.
+Use native player slots from `ScriptCB_UpdateMPMetagame().participants` as the table keys, including slot 0.
+Give every admitted player role `1` for `firstSide` or `2` for `secondSide`. The host's Lua sends the same
+table to each peer, and each peer supplies it when acknowledging the same setup. The roles apply to that
+mission's actual teams. The table accepts any admitted roster up to MPGC's existing limits of eight players
+in co-op and sixteen in versus. Three-argument calls use MPGC's campaign faction assignments.
+
 ## Installation
 
 1. Install the latest release of [Fusion Cutter](https://github.com/Alpha5k/FusionCutter).
